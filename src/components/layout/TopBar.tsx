@@ -3,7 +3,6 @@ import { formatDistanceToNow } from 'date-fns'
 import { useAuthStore } from '../../stores/authStore'
 import { useCartStore } from '../../stores/cartStore'
 import { useLanguage } from '../../contexts/LanguageContext'
-import type { Tier } from '../../types'
 
 interface TopBarProps {
   lastSynced: Date | null
