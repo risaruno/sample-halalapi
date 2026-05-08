@@ -5,12 +5,6 @@ import { useCartStore } from '../../stores/cartStore'
 import { useLanguage } from '../../contexts/LanguageContext'
 import type { Tier } from '../../types'
 
-const TIER_STYLES: Record<Tier, string> = {
-  Gold:   'bg-amber-100 text-amber-800 border border-amber-300',
-  Silver: 'bg-gray-100 text-gray-700 border border-gray-300',
-  Bronze: 'bg-orange-100 text-orange-800 border border-orange-300',
-}
-
 interface TopBarProps {
   lastSynced: Date | null
   onCartClick: () => void
@@ -39,11 +33,6 @@ export default function TopBar({ lastSynced, onCartClick, onMenuClick }: TopBarP
           <>
             <span className="font-display font-semibold text-gray-900 truncate max-w-[120px] sm:max-w-none">
               {partner.name}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${TIER_STYLES[partner.tier]}`}
-            >
-              {partner.tier}
             </span>
           </>
         )}
