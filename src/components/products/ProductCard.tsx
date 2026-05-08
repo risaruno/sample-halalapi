@@ -1,4 +1,5 @@
 import { ShoppingCart, CheckCircle2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useCartStore } from '../../stores/cartStore'
 import { useLanguage } from '../../contexts/LanguageContext'
 import type { Product } from '../../types'
@@ -11,23 +12,30 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem, items } = useCartStore()
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
+  const navigate = useNavigate()
   const inCart = items.some((i) => i.product.id === product.id)
   const outOfStock = product.stock_qty === 0
 
-  const handleAdd = () => {
+  const displayName = product.translations?.[lang] ?? product.name
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation()
     addItem(product)
-    toast.success(t.products.addedToCart(product.name))
+    toast.success(t.products.addedToCart(displayName))
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
+    <div
+      onClick={() => navigate(`/products/${product.id}`)}
+      className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* Product image */}
       <div className="relative h-44 bg-gray-50">
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
-            alt={product.name}
+            alt={displayName}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -61,7 +69,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="p-4 flex flex-col flex-1">
         <p className="text-xs text-teal-600 font-medium mb-1">{product.category}</p>
         <h3 className="font-display font-semibold text-gray-900 text-sm leading-snug mb-3 line-clamp-2 flex-1">
-          {product.name}
+          {displayName}
         </h3>
 
         {/* Pricing */}

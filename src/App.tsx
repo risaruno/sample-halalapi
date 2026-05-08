@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/authStore'
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
 import AppShell from './components/layout/AppShell'
 import ProductsPage from './pages/ProductsPage'
+import ProductDetailPage from './pages/ProductDetailPage'
 import CheckoutPage from './pages/CheckoutPage'
 import OrdersPage from './pages/OrdersPage'
 import OrderDetailPage from './pages/OrderDetailPage'
@@ -62,6 +63,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/products" replace />} />
         <Route path="/products" element={<ProductsPage onSyncUpdate={setLastSynced} />} />
+        <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />

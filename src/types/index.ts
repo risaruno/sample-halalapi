@@ -42,6 +42,12 @@ export interface AuthState {
 
 // ─── Product ─────────────────────────────────────────────────────────────────
 
+export interface ProductTranslations {
+  en?: string
+  ko?: string
+  id?: string
+}
+
 export interface Product {
   id: string
   name: string
@@ -54,6 +60,7 @@ export interface Product {
   is_halal: boolean
   images?: string[] | null
   description?: string
+  translations?: ProductTranslations | null
 }
 
 export interface CategoryTranslations {

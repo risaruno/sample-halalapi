@@ -24,9 +24,13 @@ export default function ProductsPage({ onSyncUpdate }: ProductsPageProps) {
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const matchSearch = search.trim() === '' ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase())
+      const q = search.trim().toLowerCase()
+      const matchSearch = q === '' ||
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        (p.translations?.en ?? '').toLowerCase().includes(q) ||
+        (p.translations?.id ?? '').toLowerCase().includes(q) ||
+        (p.translations?.ko ?? '').toLowerCase().includes(q)
       const matchCat = selectedCategory === null || p.category === selectedCategory
       return matchSearch && matchCat
     })
