@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCartStore } from '../stores/cartStore'
 import { DELIVERY_FEE, formatKRW } from '../lib/constants'
+import { useLanguage } from '../contexts/LanguageContext'
 import type { DaumPostcodeData } from '../types'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
@@ -28,6 +29,7 @@ interface PlaceOrderBody {
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const { items, subtotal, clearCart } = useCartStore()
+  const { t } = useLanguage()
   const [placing, setPlacing] = useState(false)
   const [form, setForm] = useState<ShippingForm>({
     line1: '',
@@ -46,7 +48,7 @@ export default function CheckoutPage() {
 
   const openAddressSearch = () => {
     if (!window.daum?.Postcode) {
-      toast.error('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
+      toast.error(t.checkout.addressSearchUnavailable)
       return
     }
     new window.daum.Postcode({
@@ -68,7 +70,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (!isValid) {
-      toast.error('배송 주소를 입력해주세요.')
+      toast.error(t.checkout.addressRequired)
       return
     }
     setPlacing(true)
@@ -91,13 +93,13 @@ export default function CheckoutPage() {
       )
       const newOrder = res.data.data
       clearCart()
-      toast.success(`주문이 완료되었습니다! (${newOrder.order_no})`)
+      toast.success(t.checkout.successMsg(newOrder.order_no))
       navigate(`/orders/${newOrder.id}`)
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        '주문 처리 중 오류가 발생했습니다.'
+        t.checkout.errorMsg
       toast.error(msg)
     } finally {
       setPlacing(false)
@@ -130,8 +132,8 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-bold text-gray-900">주문하기</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Check out and place your order</p>
+        <h1 className="font-display text-2xl font-bold text-gray-900">{t.checkout.title}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t.checkout.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -139,7 +141,7 @@ export default function CheckoutPage() {
         <div className="lg:col-span-3 space-y-4">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <h2 className="font-display font-semibold text-gray-900 mb-3">
-              주문 상품 ({items.length}개)
+              {t.checkout.orderItems(items.length)}
             </h2>
             <div className="divide-y divide-gray-100">
               {items.map((item) => (
@@ -153,15 +155,15 @@ export default function CheckoutPage() {
         <div className="lg:col-span-2 space-y-4">
           {/* Order summary */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h2 className="font-display font-semibold text-gray-900 mb-3">주문 요약</h2>
+            <h2 className="font-display font-semibold text-gray-900 mb-3">{t.checkout.orderSummary}</h2>
             <CartSummary />
             <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1">
               <div className="flex justify-between">
-                <span>소계</span>
+                <span>{t.cart.subtotal}</span>
                 <span>{formatKRW(subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span>배송비 (고정)</span>
+                <span>{t.checkout.fixedDelivery}</span>
                 <span>{formatKRW(DELIVERY_FEE)}</span>
               </div>
             </div>
@@ -169,13 +171,13 @@ export default function CheckoutPage() {
 
           {/* Shipping form */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h2 className="font-display font-semibold text-gray-900 mb-4">배송 정보</h2>
+            <h2 className="font-display font-semibold text-gray-900 mb-4">{t.checkout.shippingInfo}</h2>
 
             <div className="space-y-3">
               {/* Address search button */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  주소 검색 <span className="text-red-500">*</span>
+                  {t.checkout.addressSearch} <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
@@ -183,20 +185,20 @@ export default function CheckoutPage() {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-teal-400 rounded-lg text-teal-700 font-medium text-sm hover:bg-teal-50 transition-colors"
                 >
                   <MapPin size={16} />
-                  주소 찾기 (Kakao 우편번호)
+                  {t.checkout.findAddress}
                 </button>
               </div>
 
-              {field('postal_code', '우편번호 (Postal Code)', '12345', { required: true, readOnly: true })}
-              {field('line1', '기본 주소 (Address Line 1)', '서울시 강남구 테헤란로 123', { required: true, readOnly: true })}
-              {field('line2', '상세 주소 (Line 2 — apt, floor, unit)', '101동 502호', {})}
+              {field('postal_code', t.checkout.postalCode, '12345', { required: true, readOnly: true })}
+              {field('line1', t.checkout.addressLine1, t.checkout.addressLine1Placeholder, { required: true, readOnly: true })}
+              {field('line2', t.checkout.addressLine2, t.checkout.addressLine2Placeholder, {})}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">배송 메모 (Notes)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t.checkout.notes}</label>
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="배달 전 연락 바랍니다…"
+                  placeholder={t.checkout.notesPlaceholder}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                 />
@@ -211,7 +213,7 @@ export default function CheckoutPage() {
               disabled={!isValid}
               loading={placing}
             >
-              주문 완료 (Place Order)
+              {t.checkout.placeOrder}
             </Button>
           </div>
         </div>

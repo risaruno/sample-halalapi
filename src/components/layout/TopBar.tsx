@@ -60,7 +60,7 @@ export default function TopBar({ lastSynced, onCartClick, onMenuClick }: TopBarP
 
         {/* Language switcher */}
         <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden">
-          {(['en', 'ko'] as const).map((l) => (
+          {(['en', 'ko', 'id'] as const).map((l) => (
             <button
               key={l}
               onClick={() => setLang(l)}

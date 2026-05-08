@@ -56,9 +56,15 @@ export interface Product {
   description?: string
 }
 
+export interface CategoryTranslations {
+  en?: string
+  ko?: string
+  id?: string
+}
+
 export interface Category {
-  name: string
-  count?: number
+  name: string                        // canonical key — use for API ?category= filter
+  translations: CategoryTranslations  // display labels per language
 }
 
 // ─── Cart ────────────────────────────────────────────────────────────────────

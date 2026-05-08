@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Search } from 'lucide-react'
 import { useProducts } from '../hooks/useProducts'
 import { useCategories } from '../hooks/useCategories'
+import { useLanguage } from '../contexts/LanguageContext'
 import ProductGrid from '../components/products/ProductGrid'
 import CategoryFilter from '../components/products/CategoryFilter'
 
@@ -12,6 +13,7 @@ interface ProductsPageProps {
 export default function ProductsPage({ onSyncUpdate }: ProductsPageProps) {
   const { products, loading, error, lastSynced } = useProducts()
   const categories = useCategories(products)
+  const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -34,16 +36,16 @@ export default function ProductsPage({ onSyncUpdate }: ProductsPageProps) {
     <div className="space-y-5">
       {/* Page header */}
       <div>
-        <h1 className="font-display text-2xl font-bold text-gray-900">상품 목록</h1>
+        <h1 className="font-display text-2xl font-bold text-gray-900">{t.products.title}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          {loading ? '상품을 불러오는 중…' : `${products.length}개 상품 · 내 등급 할인가 적용됨`}
+          {loading ? t.products.loading : t.products.count(products.length)}
         </p>
       </div>
 
       {/* Error */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          오류: {error}
+          {error}
         </div>
       )}
 
@@ -52,7 +54,7 @@ export default function ProductsPage({ onSyncUpdate }: ProductsPageProps) {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          placeholder="상품 검색 (이름, SKU)…"
+          placeholder={t.products.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"

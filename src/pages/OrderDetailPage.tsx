@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Order, Product } from '../types'
 import { formatKRW, DELIVERY_FEE } from '../lib/constants'
+import { useLanguage } from '../contexts/LanguageContext'
 import OrderStatusBadge from '../components/orders/OrderStatusBadge'
 import Button from '../components/ui/Button'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -14,11 +15,12 @@ interface ConfirmModalProps {
   title: string
   message: string
   confirmLabel: string
+  closeLabel: string
   onConfirm: () => void
   onCancel: () => void
 }
 
-function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmModalProps) {
+function ConfirmModal({ title, message, confirmLabel, closeLabel, onConfirm, onCancel }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
@@ -31,7 +33,7 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
         <p className="text-sm text-gray-600 mb-5">{message}</p>
         <div className="flex gap-3">
           <Button variant="secondary" size="md" className="flex-1" onClick={onCancel}>
-            닫기
+            {closeLabel}
           </Button>
           <Button variant="danger" size="md" className="flex-1" onClick={onConfirm}>
             {confirmLabel}
@@ -45,6 +47,7 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [order, setOrder] = useState<Order | null>(null)
   const [compareAtMap, setCompareAtMap] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(true)
@@ -79,12 +82,12 @@ export default function OrderDetailPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        '주문 정보를 불러올 수 없습니다.'
+        t.orderDetail.errorLoad
       setError(msg)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, t])
 
   useEffect(() => { fetchOrder() }, [fetchOrder])
 
@@ -94,13 +97,13 @@ export default function OrderDetailPage() {
     setActionLoading(true)
     try {
       await api.patch(`/v1/orders/${id}/cancel`)
-      toast.success('주문이 취소되었습니다.')
+      toast.success(t.orderDetail.successCancel)
       await fetchOrder()
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        '주문 취소 처리 중 오류가 발생했습니다.'
+        t.orderDetail.errorCancel
       toast.error(msg)
     } finally {
       setActionLoading(false)
@@ -113,10 +116,10 @@ export default function OrderDetailPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
-          <p className="font-semibold mb-1">오류</p>
-          <p className="text-sm">{error ?? '주문을 찾을 수 없습니다.'}</p>
+          <p className="font-semibold mb-1">{t.orderDetail.error}</p>
+          <p className="text-sm">{error ?? t.orderDetail.orderNotFound}</p>
           <button className="mt-3 text-sm underline" onClick={() => navigate('/orders')}>
-            주문 목록으로 돌아가기
+            {t.orderDetail.backToOrders}
           </button>
         </div>
       </div>
@@ -159,16 +162,16 @@ export default function OrderDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Line items */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
-          <h2 className="font-display font-semibold text-gray-900 mb-4">주문 상품</h2>
+          <h2 className="font-display font-semibold text-gray-900 mb-4">{t.orderDetail.orderItems}</h2>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm min-w-[500px] px-4 sm:px-0">
               <thead>
                 <tr className="border-b border-gray-200 text-gray-500 text-left">
-                  <th className="pb-2 pr-3 font-medium pl-4 sm:pl-0">상품</th>
-                  <th className="pb-2 pr-3 font-medium text-center">수량</th>
-                  <th className="pb-2 pr-3 font-medium text-right">정가</th>
-                  <th className="pb-2 pr-3 font-medium text-right">판매가</th>
-                  <th className="pb-2 font-medium text-right pr-4 sm:pr-0">소계</th>
+                  <th className="pb-2 pr-3 font-medium pl-4 sm:pl-0">{t.orderDetail.colProduct}</th>
+                  <th className="pb-2 pr-3 font-medium text-center">{t.orderDetail.colQty}</th>
+                  <th className="pb-2 pr-3 font-medium text-right">{t.orderDetail.colRetailPrice}</th>
+                  <th className="pb-2 pr-3 font-medium text-right">{t.orderDetail.colSellingPrice}</th>
+                  <th className="pb-2 font-medium text-right pr-4 sm:pr-0">{t.orderDetail.colLineTotal}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -215,24 +218,24 @@ export default function OrderDetailPage() {
         <div className="space-y-4">
           {/* Order totals */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <h2 className="font-display font-semibold text-gray-900 mb-3">결제 요약</h2>
+            <h2 className="font-display font-semibold text-gray-900 mb-3">{t.orderDetail.paymentSummary}</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>소계</span>
+                <span>{t.orderDetail.subtotal}</span>
                 <span>{formatKRW(customerSubtotal)}</span>
               </div>
               {totalRetailSavings > 0 && (
                 <div className="flex justify-between text-rose-500 font-medium">
-                  <span>절약 (Savings vs Retail)</span>
+                  <span>{t.orderDetail.savingsVsRetail}</span>
                   <span>-{formatKRW(totalRetailSavings)}</span>
                 </div>
               )}
               <div className="flex justify-between text-gray-600">
-                <span>배송비</span>
+                <span>{t.orderDetail.delivery}</span>
                 <span>{formatKRW(deliveryFee)}</span>
               </div>
               <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-200 text-base">
-                <span>합계</span>
+                <span>{t.orderDetail.total}</span>
                 <span className="text-teal-700">{formatKRW(customerSubtotal + deliveryFee)}</span>
               </div>
             </div>
@@ -241,7 +244,7 @@ export default function OrderDetailPage() {
           {/* Shipping address */}
           {order.shipping_addr && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h2 className="font-display font-semibold text-gray-900 mb-2">배송 주소</h2>
+              <h2 className="font-display font-semibold text-gray-900 mb-2">{t.orderDetail.shippingAddress}</h2>
               <div className="text-sm text-gray-600 space-y-0.5">
                 <p>{order.shipping_addr.line1}</p>
                 {order.shipping_addr.line2 && <p>{order.shipping_addr.line2}</p>}
@@ -254,7 +257,7 @@ export default function OrderDetailPage() {
           {/* Action: cancel only (partners cannot confirm payment — that's admin-side) */}
           {order.status === 'pending' && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-3">
-              <p className="text-sm text-amber-800 font-medium">결제 대기 중입니다</p>
+              <p className="text-sm text-amber-800 font-medium">{t.orderDetail.pendingMessage}</p>
               <Button
                 variant="danger"
                 size="md"
@@ -262,21 +265,21 @@ export default function OrderDetailPage() {
                 onClick={() => setShowCancelModal(true)}
                 loading={actionLoading}
               >
-                주문 취소
+                {t.orderDetail.cancelOrder}
               </Button>
             </div>
           )}
 
           {order.status === 'cancelled' && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-              <p className="text-gray-500 text-sm">이 주문은 취소되었습니다.</p>
+              <p className="text-gray-500 text-sm">{t.orderDetail.orderCancelled}</p>
             </div>
           )}
 
           {['processing', 'shipped', 'delivered'].includes(order.status) && (
             <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center">
               <OrderStatusBadge status={order.status} />
-              <p className="text-teal-700 text-sm mt-2">현재 주문 상태입니다.</p>
+              <p className="text-teal-700 text-sm mt-2">{t.orderDetail.currentStatus}</p>
             </div>
           )}
         </div>
@@ -284,9 +287,10 @@ export default function OrderDetailPage() {
 
       {showCancelModal && (
         <ConfirmModal
-          title="주문 취소"
-          message="이 주문을 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다."
-          confirmLabel="취소하기"
+          title={t.orderDetail.cancelTitle}
+          message={t.orderDetail.cancelMessage}
+          confirmLabel={t.orderDetail.cancelConfirm}
+          closeLabel={t.orderDetail.close}
           onConfirm={handleCancel}
           onCancel={() => setShowCancelModal(false)}
         />

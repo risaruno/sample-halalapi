@@ -1,13 +1,14 @@
 import { useLanguage } from '../../contexts/LanguageContext'
+import type { Category } from '../../types'
 
 interface CategoryFilterProps {
-  categories: string[]
-  selected: string | null
+  categories: Category[]
+  selected: string | null      // holds category.name (canonical key)
   onChange: (category: string | null) => void
 }
 
 export default function CategoryFilter({ categories, selected, onChange }: CategoryFilterProps) {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
 
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
@@ -23,15 +24,15 @@ export default function CategoryFilter({ categories, selected, onChange }: Categ
       </button>
       {categories.map((cat) => (
         <button
-          key={cat}
-          onClick={() => onChange(cat === selected ? null : cat)}
+          key={cat.name}
+          onClick={() => onChange(cat.name === selected ? null : cat.name)}
           className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            selected === cat
+            selected === cat.name
               ? 'bg-teal-700 text-white'
               : 'bg-white text-gray-600 border border-gray-300 hover:border-teal-500 hover:text-teal-700'
           }`}
         >
-          {cat}
+          {cat.translations[lang] ?? cat.name}
         </button>
       ))}
     </div>

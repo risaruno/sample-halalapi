@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { Order } from '../../types'
 import { formatKRW } from '../../lib/constants'
+import { useLanguage } from '../../contexts/LanguageContext'
 import OrderStatusBadge from './OrderStatusBadge'
 import Card from '../ui/Card'
 
@@ -11,6 +12,7 @@ interface OrderCardProps {
 
 export default function OrderCard({ order }: OrderCardProps) {
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   return (
     <Card onClick={() => navigate(`/orders/${order.id}`)} className="p-5">
@@ -26,7 +28,7 @@ export default function OrderCard({ order }: OrderCardProps) {
             {format(new Date(order.created_at), 'yyyy년 MM월 dd일 HH:mm')}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            상품 {order.items?.length ?? '?'}종
+            {t.orders.items(order.items?.length ?? 0)}
           </p>
         </div>
         <div className="text-right flex-shrink-0">

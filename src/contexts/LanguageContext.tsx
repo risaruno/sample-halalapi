@@ -14,7 +14,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null)
 function getStoredLang(): Language {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'en' || stored === 'ko') return stored
+    if (stored === 'en' || stored === 'ko' || stored === 'id') return stored
   } catch {
     // localStorage unavailable
   }
