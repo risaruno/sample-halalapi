@@ -9,9 +9,12 @@ import toast from 'react-hot-toast'
 import CartItem from '../components/cart/CartItem'
 import CartSummary from '../components/cart/CartSummary'
 import Button from '../components/ui/Button'
+import ShippingProfilePicker from '../components/checkout/ShippingProfilePicker'
 import { MapPin } from 'lucide-react'
 
 interface ShippingForm {
+  recipient_name: string
+  phone: string
   line1: string
   line2: string
   city: string
@@ -22,7 +25,15 @@ interface ShippingForm {
 
 interface PlaceOrderBody {
   items: { product_id: string; quantity: number }[]
-  shipping_addr: { line1: string; line2: string; city: string; postal_code: string; country: string }
+  shipping_addr: {
+    name: string
+    phone: string
+    line1: string
+    line2: string
+    city: string
+    postal_code: string
+    country: string
+  }
   notes?: string
 }
 
@@ -32,6 +43,8 @@ export default function CheckoutPage() {
   const { t } = useLanguage()
   const [placing, setPlacing] = useState(false)
   const [form, setForm] = useState<ShippingForm>({
+    recipient_name: '',
+    phone: '',
     line1: '',
     line2: '',
     city: '',
@@ -47,23 +60,42 @@ export default function CheckoutPage() {
   }
 
   const openAddressSearch = () => {
-    if (!window.daum?.Postcode) {
-      toast.error(t.checkout.addressSearchUnavailable)
+    const openPopup = () => {
+      new window.daum.Postcode({
+        oncomplete: (data: DaumPostcodeData) => {
+          setForm((prev) => ({
+            ...prev,
+            postal_code: data.zonecode,
+            line1: data.roadAddress || data.address,
+            city: `${data.sido} ${data.sigungu}`.trim(),
+          }))
+        },
+      }).open()
+    }
+
+    if (window.daum?.Postcode) {
+      openPopup()
       return
     }
-    new window.daum.Postcode({
-      oncomplete: (data: DaumPostcodeData) => {
-        setForm((prev) => ({
-          ...prev,
-          postal_code: data.zonecode,
-          line1: data.roadAddress || data.address,
-          city: `${data.sido} ${data.sigungu}`.trim(),
-        }))
-      },
-    }).open()
+
+    // Script hasn't fully initialised yet — inject it dynamically and wait
+    const existing = document.querySelector('script[src*="postcode"]')
+    if (existing) {
+      // Script tag is in DOM but still loading — wait for it
+      existing.addEventListener('load', openPopup, { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.onload = openPopup
+    script.onerror = () => toast.error(t.checkout.addressSearchUnavailable)
+    document.head.appendChild(script)
   }
 
   const isValid =
+    form.recipient_name.trim() !== '' &&
+    form.phone.trim() !== '' &&
     form.line1.trim() !== '' &&
     form.city.trim() !== '' &&
     form.postal_code.trim() !== ''
@@ -78,6 +110,8 @@ export default function CheckoutPage() {
       const body: PlaceOrderBody = {
         items: items.map((i) => ({ product_id: i.product.id, quantity: i.quantity })),
         shipping_addr: {
+          name: form.recipient_name.trim(),
+          phone: form.phone.trim(),
           line1: form.line1,
           line2: form.line2.trim() || '-',
           city: form.city,
@@ -174,6 +208,27 @@ export default function CheckoutPage() {
             <h2 className="font-display font-semibold text-gray-900 mb-4">{t.checkout.shippingInfo}</h2>
 
             <div className="space-y-3">
+              {/* Saved profile picker */}
+              <ShippingProfilePicker
+                current={form}
+                onLoad={(p) =>
+                  setForm({
+                    recipient_name: p.recipient_name,
+                    phone: p.phone,
+                    line1: p.line1,
+                    line2: p.line2,
+                    city: p.city,
+                    postal_code: p.postal_code,
+                    country: p.country,
+                    notes: p.notes,
+                  })
+                }
+              />
+
+              {/* Name + Phone */}
+              {field('recipient_name', t.profiles.recipientName, t.profiles.recipientNamePlaceholder, { required: true })}
+              {field('phone', t.profiles.phone, t.profiles.phonePlaceholder, { required: true })}
+
               {/* Address search button */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

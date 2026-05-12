@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X, Upload, CheckCircle2, Circle, ChevronRight, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Order, Product } from '../types'
@@ -16,11 +16,12 @@ interface ConfirmModalProps {
   message: string
   confirmLabel: string
   closeLabel: string
+  confirmVariant?: 'primary' | 'danger'
   onConfirm: () => void
   onCancel: () => void
 }
 
-function ConfirmModal({ title, message, confirmLabel, closeLabel, onConfirm, onCancel }: ConfirmModalProps) {
+function ConfirmModal({ title, message, confirmLabel, closeLabel, confirmVariant = 'danger', onConfirm, onCancel }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
@@ -35,10 +36,36 @@ function ConfirmModal({ title, message, confirmLabel, closeLabel, onConfirm, onC
           <Button variant="secondary" size="md" className="flex-1" onClick={onCancel}>
             {closeLabel}
           </Button>
-          <Button variant="danger" size="md" className="flex-1" onClick={onConfirm}>
+          <Button variant={confirmVariant} size="md" className="flex-1" onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Two-step progress indicator for the payment flow
+function PaymentStepper({ step, labels }: { step: 1 | 2; labels: [string, string] }) {
+  const done1 = step > 1
+  const active1 = step === 1
+  const active2 = step === 2
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      {/* Step 1 */}
+      <div className={`flex items-center gap-1.5 text-xs font-semibold ${active1 ? 'text-amber-700' : done1 ? 'text-teal-600' : 'text-gray-400'}`}>
+        {done1
+          ? <CheckCircle2 size={16} className="text-teal-500 flex-shrink-0" />
+          : <Circle size={16} className={active1 ? 'text-amber-500' : 'text-gray-300'} />}
+        <span className={`hidden sm:inline ${active1 ? 'underline underline-offset-2' : ''}`}>{labels[0]}</span>
+      </div>
+      <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />
+      {/* Step 2 */}
+      <div className={`flex items-center gap-1.5 text-xs font-semibold ${active2 ? 'text-teal-700' : 'text-gray-400'}`}>
+        {active2
+          ? <Circle size={16} className="text-teal-500" />
+          : <Circle size={16} className="text-gray-300" />}
+        <span className={`hidden sm:inline ${active2 ? 'underline underline-offset-2' : ''}`}>{labels[1]}</span>
       </div>
     </div>
   )
@@ -54,6 +81,14 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+
+  // Payment proof upload state
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [proofPreview, setProofPreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [showChangeProof, setShowChangeProof] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchOrder = useCallback(async () => {
     if (!id) return
@@ -110,6 +145,45 @@ export default function OrderDetailPage() {
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setProofFile(file)
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (ev) => setProofPreview(ev.target?.result as string)
+      reader.readAsDataURL(file)
+    } else {
+      setProofPreview(null)
+    }
+  }
+
+  const handleProofUpload = async (e: React.FormEvent, isChange = false) => {
+    e.preventDefault()
+    if (!id || !proofFile) return
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', proofFile)
+      await api.post(`/v1/orders/${id}/payment-proof`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success(isChange ? t.orderDetail.proofChangeSuccess : t.orderDetail.proofSuccess)
+      setProofFile(null)
+      setProofPreview(null)
+      setShowChangeProof(false)
+      await fetchOrder()
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        t.orderDetail.proofError
+      setUploadError(msg)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) return <LoadingSpinner centered />
 
   if (error || !order) {
@@ -135,6 +209,10 @@ export default function OrderDetailPage() {
     }
     return s
   }, 0)
+
+  const proof = order.payment_proof
+  const hasProof = !!proof
+  const stepperLabels: [string, string] = [t.orderDetail.proofStep1, t.orderDetail.proofStep2]
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -246,6 +324,14 @@ export default function OrderDetailPage() {
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
               <h2 className="font-display font-semibold text-gray-900 mb-2">{t.orderDetail.shippingAddress}</h2>
               <div className="text-sm text-gray-600 space-y-0.5">
+                {order.shipping_addr.name && (
+                  <p className="font-medium text-gray-800">
+                    {order.shipping_addr.name}
+                    {order.shipping_addr.phone && (
+                      <span className="ml-2 font-normal text-gray-500">{order.shipping_addr.phone}</span>
+                    )}
+                  </p>
+                )}
                 <p>{order.shipping_addr.line1}</p>
                 {order.shipping_addr.line2 && <p>{order.shipping_addr.line2}</p>}
                 <p>{order.shipping_addr.city} {order.shipping_addr.postal_code}</p>
@@ -254,19 +340,169 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {/* Action: cancel only (partners cannot confirm payment — that's admin-side) */}
+          {/* ── Pending: payment flow ── */}
           {order.status === 'pending' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-3">
-              <p className="text-sm text-amber-800 font-medium">{t.orderDetail.pendingMessage}</p>
-              <Button
-                variant="danger"
-                size="md"
-                className="w-full"
-                onClick={() => setShowCancelModal(true)}
-                loading={actionLoading}
-              >
-                {t.orderDetail.cancelOrder}
-              </Button>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+              <PaymentStepper step={hasProof ? 2 : 1} labels={stepperLabels} />
+
+              {!hasProof ? (
+                /* ── Step 1: Upload proof ── */
+                <form onSubmit={(e) => { void handleProofUpload(e, false) }} className="space-y-3">
+                  <h3 className="font-display font-semibold text-gray-800 text-sm">{t.orderDetail.proofTitle}</h3>
+
+                  {/* File drop area */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{t.orderDetail.proofImage}</label>
+                    <div
+                      className="border-2 border-dashed border-amber-300 rounded-lg overflow-hidden cursor-pointer hover:border-teal-400 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {proofPreview ? (
+                        <img
+                          src={proofPreview}
+                          alt="Preview"
+                          className="w-full max-h-40 object-contain bg-gray-50"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-gray-400 py-5">
+                          <Upload size={22} />
+                          <p className="text-xs">{t.orderDetail.proofImageHint}</p>
+                        </div>
+                      )}
+                    </div>
+                    {proofFile && (
+                      <p className="text-xs text-teal-700 mt-1 truncate">{proofFile.name}</p>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+
+                  {uploadError && (
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{uploadError}</p>
+                  )}
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    loading={uploading}
+                    disabled={!proofFile}
+                  >
+                    {t.orderDetail.proofSubmit}
+                  </Button>
+                </form>
+              ) : (
+                /* ── Step 2: Awaiting admin confirmation ── */
+                <div className="space-y-4">
+                  {showChangeProof ? (
+                    /* ── Change proof form ── */
+                    <form onSubmit={(e) => { void handleProofUpload(e, true) }} className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-display font-semibold text-gray-800 text-sm">{t.orderDetail.proofTitle}</h3>
+                        <button
+                          type="button"
+                          onClick={() => { setShowChangeProof(false); setProofFile(null); setProofPreview(null); setUploadError(null) }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2">{t.orderDetail.proofChangeHint}</p>
+
+                      {/* File drop area */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{t.orderDetail.proofImage}</label>
+                        <div
+                          className="border-2 border-dashed border-amber-300 rounded-lg overflow-hidden cursor-pointer hover:border-teal-400 transition-colors"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {proofPreview ? (
+                            <img src={proofPreview} alt="Preview" className="w-full max-h-40 object-contain bg-gray-50" />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1 text-gray-400 py-5">
+                              <Upload size={22} />
+                              <p className="text-xs">{t.orderDetail.proofImageHint}</p>
+                            </div>
+                          )}
+                        </div>
+                        {proofFile && (
+                          <p className="text-xs text-teal-700 mt-1 truncate">{proofFile.name}</p>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                      </div>
+
+                      {uploadError && (
+                        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{uploadError}</p>
+                      )}
+
+                      <Button type="submit" variant="primary" size="md" className="w-full" loading={uploading} disabled={!proofFile}>
+                        {t.orderDetail.proofSubmit}
+                      </Button>
+                    </form>
+                  ) : (
+                    /* ── Proof preview card ── */
+                    <>
+                      <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+                        <a href={proof.image_url} target="_blank" rel="noopener noreferrer" className="block group relative">
+                          <img
+                            src={proof.image_url}
+                            alt="Payment proof"
+                            className="w-full max-h-48 object-contain bg-gray-50"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                            <ExternalLink size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow transition-opacity" />
+                          </div>
+                        </a>
+                        <div className="px-4 py-3 text-sm border-t border-gray-100">
+                          <div className="flex justify-between items-baseline">
+                            <span className="text-gray-400 text-xs">{t.orderDetail.proofSubmittedAt}</span>
+                            <span className="text-gray-400 text-xs">
+                              {format(new Date(proof.submitted_at), 'yyyy-MM-dd HH:mm')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-100 rounded-lg px-3 py-2.5">
+                        <span>🟡</span>
+                        <span>{t.orderDetail.proofConfirmHint}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowChangeProof(true)}
+                        className="w-full text-xs text-gray-500 hover:text-teal-700 underline underline-offset-2 transition-colors text-center"
+                      >
+                        {t.orderDetail.proofChange}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Cancel order — always shown at bottom */}
+              <div className="mt-4 pt-4 border-t border-amber-200">
+                <Button
+                  variant="danger"
+                  size="md"
+                  className="w-full"
+                  onClick={() => setShowCancelModal(true)}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                >
+                  {t.orderDetail.cancelOrder}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -282,6 +518,44 @@ export default function OrderDetailPage() {
               <p className="text-teal-700 text-sm mt-2">{t.orderDetail.currentStatus}</p>
             </div>
           )}
+
+          {/* Payment proof card — shown for any non-pending status when proof exists */}
+          {proof && order.status !== 'pending' && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="font-display font-semibold text-gray-900 text-sm">{t.orderDetail.proofTitle}</h2>
+              </div>
+              <a href={proof.image_url} target="_blank" rel="noopener noreferrer" className="block group relative">
+                <img
+                  src={proof.image_url}
+                  alt="Payment proof"
+                  className="w-full max-h-48 object-contain bg-gray-50"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <ExternalLink size={20} className="text-white opacity-0 group-hover:opacity-100 drop-shadow transition-opacity" />
+                </div>
+              </a>
+              <div className="px-4 py-3 space-y-2 text-sm">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-gray-400 text-xs">{t.orderDetail.proofSubmittedAt}</span>
+                  <span className="text-gray-400 text-xs">
+                    {format(new Date(proof.submitted_at), 'yyyy-MM-dd HH:mm')}
+                  </span>
+                </div>
+                {proof.admin_confirmed ? (
+                  <div className="flex items-center gap-1.5 text-teal-700">
+                    <CheckCircle2 size={14} className="text-teal-500 flex-shrink-0" />
+                    <span className="text-xs font-medium">{t.orderDetail.proofConfirmedBadge}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-amber-700 text-xs">
+                    <span>🟡</span>
+                    <span>{t.orderDetail.proofPendingBadge}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -295,6 +569,7 @@ export default function OrderDetailPage() {
           onCancel={() => setShowCancelModal(false)}
         />
       )}
+
     </div>
   )
 }

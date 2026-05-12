@@ -97,11 +97,28 @@ export interface CartState {
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
 
 export interface ShippingAddress {
+  name?: string
+  phone?: string
   line1: string
   line2?: string
   city: string
   postal_code: string
   country: string
+}
+
+// ─── Shipping Profiles (saved locally in browser) ────────────────────────────
+
+export interface ShippingProfile {
+  id: string
+  label: string         // user-defined name, e.g. "Home", "Office"
+  recipient_name: string
+  phone: string
+  line1: string
+  line2: string
+  city: string
+  postal_code: string
+  country: string
+  notes: string
 }
 
 export interface OrderItem {
@@ -133,6 +150,14 @@ export interface Order {
   total_amount: number
   shipping_addr?: ShippingAddress
   notes?: string
+  payment_proof?: {
+    image_url: string
+    storage_path: string
+    submitted_at: string
+    admin_confirmed: boolean
+    confirmed_at: string | null
+    confirmed_by: string | null
+  } | null
   created_at: string
   updated_at: string
 }

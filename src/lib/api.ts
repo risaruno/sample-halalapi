@@ -33,11 +33,15 @@ api.interceptors.response.use(
         isRefreshing = true
         refreshPromise = tokenHolder.refresh().finally(() => {
           isRefreshing = false
-          refreshPromise = null
+          // Keep refreshPromise set until after all waiters have proceeded
+          setTimeout(() => { refreshPromise = null }, 0)
         })
       }
 
-      await refreshPromise
+      // Capture the current promise before it can be nulled
+      const pending = refreshPromise
+      if (pending) await pending
+
       const newToken = tokenHolder.getToken()
       if (newToken) {
         originalRequest.headers.Authorization = `Bearer ${newToken}`
